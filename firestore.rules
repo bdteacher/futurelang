@@ -1,0 +1,305 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() {
+      return request.resource.data;
+    }
+    function existing() {
+      return resource.data;
+    }
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email == 'bdteacher@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // 1. AdminRecord Validation Blueprint
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['uid', 'createdAt']) &&
+        data.keys().hasOnly(['uid', 'createdAt']) &&
+        data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.createdAt is timestamp;
+    }
+
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && (request.auth.uid == adminId || isAdmin());
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isAdmin() && isValidId(adminId) && isValidAdminRecord(incoming()) &&
+        incoming().uid == adminId && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(adminId);
+    }
+
+    // 2. UserProfile Validation Blueprint
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'role', 'grade', 'className', 'xp', 'streak', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'displayName', 'email', 'role', 'grade', 'className', 'xp', 'streak', 'createdAt', 'updatedAt']) &&
+        data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.uid == request.auth.uid &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 150 &&
+        data.role is string && data.role in ['STUDENT', 'TEACHER', 'ADMIN'] &&
+        data.grade is number && data.grade >= 6 && data.grade <= 9 &&
+        data.className is string && data.className.size() >= 1 && data.className.size() <= 50 &&
+        data.xp is number && data.xp >= 0 && data.xp <= 1000000 &&
+        data.streak is number && data.streak >= 0 && data.streak <= 3650 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isVerified() && isValidId(userId) && userId == request.auth.uid &&
+        isValidUserProfile(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (incoming().role == 'STUDENT' || isAdmin());
+      allow update: if isVerified() && isValidId(userId) && isValidUserProfile(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            request.auth.uid == userId &&
+            incoming().role == existing().role &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'grade', 'className', 'xp', 'streak', 'updatedAt'])
+          )
+        );
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // 3. Classroom Validation Blueprint
+    function isValidClassroom(data) {
+      return data.keys().hasAll(['teacherId', 'teacherName', 'name', 'grade', 'studentCount', 'schedule', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['teacherId', 'teacherName', 'name', 'grade', 'studentCount', 'schedule', 'createdAt', 'updatedAt']) &&
+        data.teacherId is string && data.teacherId.size() >= 1 && data.teacherId.size() <= 128 && data.teacherId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.teacherId == request.auth.uid &&
+        data.teacherName is string && data.teacherName.size() >= 1 && data.teacherName.size() <= 100 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+        data.grade is number && data.grade >= 6 && data.grade <= 9 &&
+        data.studentCount is number && data.studentCount >= 0 && data.studentCount <= 500 &&
+        data.schedule is string && data.schedule.size() >= 1 && data.schedule.size() <= 200 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    match /classes/{classId} {
+      allow get: if isSignedIn() && isValidId(classId) && (resource.data.teacherId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.teacherId == request.auth.uid;
+      allow create: if isVerified() && isValidId(classId) && isValidClassroom(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(classId) && isValidClassroom(incoming()) &&
+        incoming().teacherId == existing().teacherId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            existing().teacherId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['teacherName', 'name', 'grade', 'studentCount', 'schedule', 'updatedAt'])
+          )
+        );
+      allow delete: if isVerified() && isValidId(classId) && (existing().teacherId == request.auth.uid || isAdmin());
+    }
+
+    // 4. StudentRecord Validation Blueprint
+    function isValidStudentRecord(data) {
+      return data.keys().hasAll([
+          'ownerId', 'studentCode', 'fullName', 'classId', 'className', 'grade', 'username',
+          'listeningScore', 'grammarScore', 'vocabScore', 'readingScore', 'writingScore', 'speakingScore',
+          'testAvg', 'xp', 'streak', 'progressPercent', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId', 'studentCode', 'fullName', 'classId', 'className', 'grade', 'username',
+          'listeningScore', 'grammarScore', 'vocabScore', 'readingScore', 'writingScore', 'speakingScore',
+          'testAvg', 'xp', 'streak', 'progressPercent', 'createdAt', 'updatedAt'
+        ]) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.studentCode is string && data.studentCode.size() >= 1 && data.studentCode.size() <= 50 &&
+        data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 100 &&
+        data.classId is string && data.classId.size() >= 1 && data.classId.size() <= 128 && data.classId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.className is string && data.className.size() >= 1 && data.className.size() <= 100 &&
+        data.grade is number && data.grade >= 6 && data.grade <= 9 &&
+        data.username is string && data.username.size() >= 1 && data.username.size() <= 100 &&
+        data.listeningScore is number && data.listeningScore >= 0 && data.listeningScore <= 10 &&
+        data.grammarScore is number && data.grammarScore >= 0 && data.grammarScore <= 10 &&
+        data.vocabScore is number && data.vocabScore >= 0 && data.vocabScore <= 10 &&
+        data.readingScore is number && data.readingScore >= 0 && data.readingScore <= 10 &&
+        data.writingScore is number && data.writingScore >= 0 && data.writingScore <= 10 &&
+        data.speakingScore is number && data.speakingScore >= 0 && data.speakingScore <= 10 &&
+        data.testAvg is number && data.testAvg >= 0 && data.testAvg <= 10 &&
+        data.xp is number && data.xp >= 0 && data.xp <= 1000000 &&
+        data.streak is number && data.streak >= 0 && data.streak <= 3650 &&
+        data.progressPercent is number && data.progressPercent >= 0 && data.progressPercent <= 100 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    match /students/{studentId} {
+      allow get: if isSignedIn() && isValidId(studentId) && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerified() && isValidId(studentId) && isValidStudentRecord(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/classes/$(incoming().classId)) &&
+        get(/databases/$(database)/documents/classes/$(incoming().classId)).data.teacherId == request.auth.uid;
+      allow update: if isVerified() && isValidId(studentId) && isValidStudentRecord(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().classId == existing().classId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            existing().ownerId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'studentCode', 'fullName', 'className', 'grade', 'username',
+              'listeningScore', 'grammarScore', 'vocabScore', 'readingScore', 'writingScore', 'speakingScore',
+              'testAvg', 'xp', 'streak', 'progressPercent', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isVerified() && isValidId(studentId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // 5. OnlineTest Validation Blueprint
+    function isValidOnlineTest(data) {
+      return data.keys().hasAll([
+          'authorId', 'title', 'grade', 'unit', 'durationMinutes', 'totalPoints',
+          'questionCount', 'assignedClass', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'authorId', 'title', 'grade', 'unit', 'durationMinutes', 'totalPoints',
+          'questionCount', 'assignedClass', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.authorId is string && data.authorId.size() >= 1 && data.authorId.size() <= 128 && data.authorId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.authorId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.grade is number && data.grade >= 6 && data.grade <= 9 &&
+        data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 100 &&
+        data.durationMinutes is number && data.durationMinutes >= 5 && data.durationMinutes <= 180 &&
+        data.totalPoints is number && data.totalPoints >= 1 && data.totalPoints <= 100 &&
+        data.questionCount is number && data.questionCount >= 1 && data.questionCount <= 100 &&
+        data.assignedClass is string && data.assignedClass.size() >= 1 && data.assignedClass.size() <= 100 &&
+        data.status is string && data.status in ['ACTIVE', 'CLOSED'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    match /tests/{testId} {
+      allow get: if isSignedIn() && isValidId(testId) && (resource.data.authorId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.authorId == request.auth.uid;
+      allow create: if isVerified() && isValidId(testId) && isValidOnlineTest(incoming()) &&
+        incoming().status == 'ACTIVE' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(testId) && isValidOnlineTest(incoming()) &&
+        incoming().authorId == existing().authorId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            existing().authorId == request.auth.uid &&
+            existing().status != 'CLOSED' &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'title', 'grade', 'unit', 'durationMinutes', 'totalPoints',
+              'questionCount', 'assignedClass', 'status', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isVerified() && isValidId(testId) && (existing().authorId == request.auth.uid || isAdmin());
+    }
+
+    // 6. ActivitySubmission Validation Blueprint
+    function isValidActivitySubmission(data) {
+      return data.keys().hasAll([
+          'userId', 'studentName', 'moduleType', 'grade', 'unit', 'title',
+          'score', 'maxScore', 'content', 'feedback', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId', 'studentName', 'moduleType', 'grade', 'unit', 'title',
+          'score', 'maxScore', 'content', 'feedback', 'createdAt'
+        ]) &&
+        data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.userId == request.auth.uid &&
+        data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 100 &&
+        data.moduleType is string && data.moduleType in ['LISTENING', 'GRAMMAR', 'VOCABULARY', 'SPEAKING', 'READING', 'WRITING', 'TEST'] &&
+        data.grade is number && data.grade >= 6 && data.grade <= 9 &&
+        data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 100 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.score is number && data.score >= 0 && data.score <= 100 &&
+        data.maxScore is number && data.maxScore >= 1 && data.maxScore <= 100 &&
+        data.content is string && data.content.size() >= 1 && data.content.size() <= 5000 &&
+        data.feedback is string && data.feedback.size() >= 1 && data.feedback.size() <= 5000 &&
+        data.createdAt is timestamp;
+    }
+
+    match /submissions/{submissionId} {
+      allow get: if isSignedIn() && isValidId(submissionId) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidId(submissionId) && isValidActivitySubmission(incoming()) &&
+        incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerified() && isValidId(submissionId) && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    // 7. SavedVocabulary Validation Blueprint
+    function isValidSavedVocabulary(data) {
+      return data.keys().hasAll([
+          'userId', 'word', 'ipa', 'pos', 'meaning', 'grade', 'unit', 'box', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId', 'word', 'ipa', 'pos', 'meaning', 'grade', 'unit', 'box', 'createdAt', 'updatedAt'
+        ]) &&
+        data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.userId == request.auth.uid &&
+        data.word is string && data.word.size() >= 1 && data.word.size() <= 100 &&
+        data.ipa is string && data.ipa.size() >= 1 && data.ipa.size() <= 100 &&
+        data.pos is string && data.pos.size() >= 1 && data.pos.size() <= 50 &&
+        data.meaning is string && data.meaning.size() >= 1 && data.meaning.size() <= 300 &&
+        data.grade is number && data.grade >= 6 && data.grade <= 9 &&
+        data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 100 &&
+        data.box is number && data.box >= 1 && data.box <= 5 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    match /savedVocab/{vocabId} {
+      allow get: if isSignedIn() && isValidId(vocabId) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidId(vocabId) && isValidSavedVocabulary(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(vocabId) && isValidSavedVocabulary(incoming()) &&
+        incoming().userId == existing().userId &&
+        incoming().word == existing().word &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            existing().userId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['box', 'meaning', 'updatedAt'])
+          )
+        );
+      allow delete: if isVerified() && isValidId(vocabId) && (existing().userId == request.auth.uid || isAdmin());
+    }
+  }
+}

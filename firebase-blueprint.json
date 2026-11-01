@@ -1,0 +1,435 @@
+{
+  "entities": {
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted administrator marker document.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile with role and academic progress summary.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 150
+        },
+        "role": {
+          "type": "string",
+          "enum": ["STUDENT", "TEACHER", "ADMIN"]
+        },
+        "grade": {
+          "type": "number"
+        },
+        "className": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "xp": {
+          "type": "number"
+        },
+        "streak": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "email", "role", "grade", "className", "xp", "streak", "createdAt", "updatedAt"]
+    },
+    "Classroom": {
+      "title": "Classroom",
+      "description": "Middle school English class managed by a teacher.",
+      "type": "object",
+      "properties": {
+        "teacherId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "teacherName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "grade": {
+          "type": "number"
+        },
+        "studentCount": {
+          "type": "number"
+        },
+        "schedule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["teacherId", "teacherName", "name", "grade", "studentCount", "schedule", "createdAt", "updatedAt"]
+    },
+    "StudentRecord": {
+      "title": "StudentRecord",
+      "description": "Student roster and 6-skill academic tracking record.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "fullName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "classId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "className": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "grade": {
+          "type": "number"
+        },
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "listeningScore": {
+          "type": "number"
+        },
+        "grammarScore": {
+          "type": "number"
+        },
+        "vocabScore": {
+          "type": "number"
+        },
+        "readingScore": {
+          "type": "number"
+        },
+        "writingScore": {
+          "type": "number"
+        },
+        "speakingScore": {
+          "type": "number"
+        },
+        "testAvg": {
+          "type": "number"
+        },
+        "xp": {
+          "type": "number"
+        },
+        "streak": {
+          "type": "number"
+        },
+        "progressPercent": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "studentCode",
+        "fullName",
+        "classId",
+        "className",
+        "grade",
+        "username",
+        "listeningScore",
+        "grammarScore",
+        "vocabScore",
+        "readingScore",
+        "writingScore",
+        "speakingScore",
+        "testAvg",
+        "xp",
+        "streak",
+        "progressPercent",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "OnlineTest": {
+      "title": "OnlineTest",
+      "description": "Online examination created by a teacher for a specific grade and unit.",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "grade": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "durationMinutes": {
+          "type": "number"
+        },
+        "totalPoints": {
+          "type": "number"
+        },
+        "questionCount": {
+          "type": "number"
+        },
+        "assignedClass": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ACTIVE", "CLOSED"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "authorId",
+        "title",
+        "grade",
+        "unit",
+        "durationMinutes",
+        "totalPoints",
+        "questionCount",
+        "assignedClass",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ActivitySubmission": {
+      "title": "ActivitySubmission",
+      "description": "Completed exercise, speaking/writing submission, or online test result.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "moduleType": {
+          "type": "string",
+          "enum": ["LISTENING", "GRAMMAR", "VOCABULARY", "SPEAKING", "READING", "WRITING", "TEST"]
+        },
+        "grade": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "score": {
+          "type": "number"
+        },
+        "maxScore": {
+          "type": "number"
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5000
+        },
+        "feedback": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "studentName",
+        "moduleType",
+        "grade",
+        "unit",
+        "title",
+        "score",
+        "maxScore",
+        "content",
+        "feedback",
+        "createdAt"
+      ]
+    },
+    "SavedVocabulary": {
+      "title": "SavedVocabulary",
+      "description": "Student's personal Spaced Repetition vocabulary item.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "word": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "ipa": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "pos": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "meaning": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "grade": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "box": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "word",
+        "ipa",
+        "pos",
+        "meaning",
+        "grade",
+        "unit",
+        "box",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Trusted administrator UIDs."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles with strictly isolated PII and role enforcement."
+    },
+    "/classes/{classId}": {
+      "schema": { "$ref": "#/entities/Classroom" },
+      "description": "Middle school English classes managed by teachers."
+    },
+    "/students/{studentId}": {
+      "schema": { "$ref": "#/entities/StudentRecord" },
+      "description": "Student roster records owned by their managing teacher/admin."
+    },
+    "/tests/{testId}": {
+      "schema": { "$ref": "#/entities/OnlineTest" },
+      "description": "Online tests created by teachers."
+    },
+    "/submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/ActivitySubmission" },
+      "description": "Exercise and test submissions isolated per student or admin."
+    },
+    "/savedVocab/{vocabId}": {
+      "schema": { "$ref": "#/entities/SavedVocabulary" },
+      "description": "Personal spaced repetition vocabulary cards isolated by student UID."
+    }
+  }
+}

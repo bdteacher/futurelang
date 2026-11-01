@@ -1,0 +1,6 @@
+{
+  "name": "FUTURE LANG – English Learning Platform",
+  "description": "Nền tảng dạy và học tiếng Anh trực tuyến thông minh dành cho giáo viên và học sinh THCS (Lớp 6, 7, 8, 9) theo chương trình GDPT 2018 - Global Success.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
